@@ -16,16 +16,24 @@ if(!defined('MSU_MAX_SITES') && !function_exists('msu_add_to_all_sites') ) {
 
 	define('MSU_MAX_SITES', 10000);
 
-	function msu_add_to_all_sites( $blog_id, $user_id, $role )  {
+	function msu_add_to_all_sites( $user_id, $password='', $meta='' )  {
 
-		// Avoiding infinite loops
-		remove_action( 'add_user_to_blog', 'msu_add_to_all_sites', 10, 3 );
+		if(empty($meta)) {
+			$added_blog_id =get_active_blog_for_user( $user_id );
+			switch_to_blog($added_blog_id);
+			$role = get_userdata($user_id)->roles[0];
+			restore_current_blog();
+		}
+		else {
+			$added_blog_id = $meta['add_to_blog'];
+			$role = $meta['new_role'];
+		}
 
 		$sites = wp_get_sites(array('limit' => MSU_MAX_SITES));
 
 		foreach ( $sites AS $site ) {
 
-			if($site['blog_id'] != $blog_id) {
+			if($site['blog_id'] != $added_blog_id) {
 
 				add_user_to_blog($site['blog_id'], $user_id, $role);
 
@@ -33,9 +41,12 @@ if(!defined('MSU_MAX_SITES') && !function_exists('msu_add_to_all_sites') ) {
 
 		}
 
-		add_action( 'add_user_to_blog', 'msu_add_to_all_sites', 10, 3 );
 	}
 
-	add_action( 'add_user_to_blog', 'msu_add_to_all_sites', 10, 3 );
+	// When self-registred or when a super admin creates it
+	add_action( 'wpmu_new_user', 'msu_add_to_all_sites', 10, 1 );
+
+	// When admin of a subsite creates it
+	add_action( 'wpmu_activate_user', 'msu_add_to_all_sites', 10, 3 );
 
 }
